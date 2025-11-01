@@ -24,8 +24,9 @@
     justify-content: space-between;
     align-items: center;
     padding: 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #000;
     color: #fff;
+    border-bottom: 2px solid #10b981;
 }
 
 .facty-pro-header-left {
@@ -37,7 +38,7 @@
 .facty-pro-icon {
     width: 48px;
     height: 48px;
-    background: rgba(255, 255, 255, 0.2);
+    background: #10b981;
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -45,7 +46,7 @@
 }
 
 .facty-pro-icon svg {
-    color: #fff;
+    color: #000;
 }
 
 .facty-pro-header h3 {
@@ -57,25 +58,29 @@
 
 .facty-pro-header .description {
     margin: 0;
-    opacity: 0.9;
+    opacity: 0.8;
     font-size: 14px;
-    color: #fff;
+    color: #10b981;
 }
 
 .facty-pro-header-right .button-primary {
-    background: #fff;
-    color: #667eea;
+    background: #10b981;
+    color: #000;
     border: none;
     font-weight: 600;
     transition: all 0.2s;
     display: flex;
     align-items: center;
     gap: 8px;
+    text-shadow: none;
+    box-shadow: 0 0 0 0 transparent;
 }
 
 .facty-pro-header-right .button-primary:hover {
+    background: #059669;
+    color: #fff;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
 }
 
 /* Existing Report Summary */
@@ -174,7 +179,7 @@
     width: 16px;
     height: 16px;
     border: 2px solid #e5e7eb;
-    border-top-color: #667eea;
+    border-top-color: #10b981;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
@@ -185,7 +190,7 @@
 
 .progress-percentage {
     font-weight: 700;
-    color: #667eea;
+    color: #10b981;
 }
 
 .progress-bar {
@@ -198,7 +203,7 @@
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(90deg, #10b981 0%, #059669 100%);
     transition: width 0.3s ease;
 }
 

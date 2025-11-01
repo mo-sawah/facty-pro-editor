@@ -180,51 +180,66 @@ class Facty_Pro_Perplexity {
      * Call Perplexity API
      */
     private function call_perplexity_api($prompt, $model, $api_key, $recency_filter) {
+        error_log('Facty Pro: Calling Perplexity API with model: ' . $model);
+        
+        $request_body = array(
+            'model' => $model,
+            'messages' => array(
+                array(
+                    'role' => 'system',
+                    'content' => 'You are a precise fact-checker for editors. Return only valid JSON. CRITICAL: Always prioritize MOST RECENT sources. NEVER mark as false unless you have strong contradicting evidence - if uncertain, mark as UNVERIFIED.'
+                ),
+                array(
+                    'role' => 'user',
+                    'content' => $prompt
+                )
+            ),
+            'temperature' => 0.2,
+            'max_tokens' => 6000,
+            'return_citations' => true,
+            'search_recency_filter' => $recency_filter
+        );
+        
+        error_log('Facty Pro: Request body prepared, sending to API...');
+        
         $response = wp_remote_post('https://api.perplexity.ai/chat/completions', array(
             'headers' => array(
                 'Authorization' => 'Bearer ' . $api_key,
                 'Content-Type' => 'application/json'
             ),
-            'body' => json_encode(array(
-                'model' => $model,
-                'messages' => array(
-                    array(
-                        'role' => 'system',
-                        'content' => 'You are a precise fact-checker for editors. Return only valid JSON. CRITICAL: Always prioritize MOST RECENT sources. NEVER mark as false unless you have strong contradicting evidence - if uncertain, mark as UNVERIFIED.'
-                    ),
-                    array(
-                        'role' => 'user',
-                        'content' => $prompt
-                    )
-                ),
-                'temperature' => 0.2,
-                'max_tokens' => 6000,
-                'return_citations' => true,
-                'search_recency_filter' => $recency_filter
-            )),
+            'body' => json_encode($request_body),
             'timeout' => 120
         ));
         
         if (is_wp_error($response)) {
-            throw new Exception('API request failed: ' . $response->get_error_message());
+            $error_message = $response->get_error_message();
+            error_log('Facty Pro: API request failed - ' . $error_message);
+            throw new Exception('API request failed: ' . $error_message);
         }
         
         $http_code = wp_remote_retrieve_response_code($response);
         $body = wp_remote_retrieve_body($response);
         
+        error_log('Facty Pro: API response code: ' . $http_code);
+        
         if ($http_code !== 200) {
             $error_data = json_decode($body, true);
             $error_message = isset($error_data['error']['message']) ? $error_data['error']['message'] : 'API request failed';
+            error_log('Facty Pro: API error - ' . $error_message);
+            error_log('Facty Pro: API response body - ' . substr($body, 0, 500));
             throw new Exception('Perplexity API Error (' . $http_code . '): ' . $error_message);
         }
         
         $data = json_decode($body, true);
         
         if (!$data || !isset($data['choices'][0]['message']['content'])) {
+            error_log('Facty Pro: Invalid API response format');
+            error_log('Facty Pro: Response body - ' . substr($body, 0, 500));
             throw new Exception('Invalid API response format');
         }
         
         $ai_content = trim($data['choices'][0]['message']['content']);
+        error_log('Facty Pro: Received AI response, length: ' . strlen($ai_content));
         
         // Clean up JSON response
         $ai_content = preg_replace('/^```json\s*/m', '', $ai_content);

@@ -78,6 +78,7 @@ class Facty_Pro_Core {
         // AJAX handlers
         add_action('wp_ajax_facty_pro_start_fact_check', array($this, 'ajax_start_fact_check'));
         add_action('wp_ajax_facty_pro_check_status', array($this, 'ajax_check_status'));
+        add_action('wp_ajax_facty_pro_get_report', array($this, 'ajax_get_report'));
         add_action('wp_ajax_facty_pro_verify_post', array($this, 'ajax_verify_post'));
         add_action('wp_ajax_facty_pro_unverify_post', array($this, 'ajax_unverify_post'));
     }
@@ -173,6 +174,35 @@ class Facty_Pro_Core {
         $status = Facty_Pro_Action_Scheduler::get_job_status($job_id);
         
         wp_send_json_success($status);
+    }
+    
+    /**
+     * AJAX: Get report details
+     */
+    public function ajax_get_report() {
+        check_ajax_referer('facty_pro_nonce', 'nonce');
+        
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error('Insufficient permissions');
+        }
+        
+        $report_id = intval($_POST['report_id']);
+        
+        global $wpdb;
+        $table = $wpdb->prefix . 'facty_pro_reports';
+        
+        $report = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table WHERE id = %d",
+            $report_id
+        ));
+        
+        if (!$report) {
+            wp_send_json_error('Report not found');
+        }
+        
+        $report_data = json_decode($report->report, true);
+        
+        wp_send_json_success($report_data);
     }
     
     /**

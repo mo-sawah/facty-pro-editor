@@ -111,12 +111,31 @@ class Facty_Pro_Action_Scheduler {
 }
 
 // Register the action handler
-add_action('facty_pro_process_fact_check', 'facty_pro_process_fact_check_handler', 10, 1);
+add_action('facty_pro_process_fact_check', 'facty_pro_process_fact_check_handler', 10, 3);
 
-function facty_pro_process_fact_check_handler($args) {
-    $post_id = $args['post_id'];
-    $job_id = $args['job_id'];
-    $options = $args['options'];
+function facty_pro_process_fact_check_handler($post_id, $job_id, $options) {
+    // Handle both Action Scheduler and direct call formats
+    if (is_array($post_id)) {
+        // Arguments passed as array (Action Scheduler format)
+        $args = $post_id;
+        $post_id = isset($args['post_id']) ? intval($args['post_id']) : 0;
+        $job_id = isset($args['job_id']) ? $args['job_id'] : '';
+        $options = isset($args['options']) ? $args['options'] : array();
+    }
+    
+    // Validate post_id
+    if (empty($post_id) || !is_numeric($post_id)) {
+        error_log('Facty Pro Error: Invalid post_id received: ' . print_r($post_id, true));
+        if (!empty($job_id)) {
+            Facty_Pro_Action_Scheduler::fail_job($job_id, 'Invalid post ID');
+        }
+        return;
+    }
+    
+    $post_id = intval($post_id);
+    
+    // Log for debugging
+    error_log('Facty Pro: Processing fact check for post ' . $post_id . ' with job ' . $job_id);
     
     try {
         Facty_Pro_Action_Scheduler::update_job_status($job_id, 5, 'starting', 'Initializing fact-check...');
@@ -124,23 +143,34 @@ function facty_pro_process_fact_check_handler($args) {
         // Get post content
         $post = get_post($post_id);
         if (!$post) {
-            throw new Exception('Post not found');
+            error_log('Facty Pro Error: Post not found - ID: ' . $post_id);
+            throw new Exception('Post not found (ID: ' . $post_id . ')');
         }
+        
+        error_log('Facty Pro: Retrieved post - Title: ' . $post->post_title);
         
         $content = $post->post_title . "\n\n" . $post->post_content;
         $content = wp_strip_all_tags($content);
         
+        if (empty(trim($content))) {
+            error_log('Facty Pro Error: Post content is empty');
+            throw new Exception('Post content is empty');
+        }
+        
         Facty_Pro_Action_Scheduler::update_job_status($job_id, 10, 'analyzing', 'Extracting content...');
+        error_log('Facty Pro: Starting Perplexity analysis');
         
         // Run fact-check analysis
         $perplexity = new Facty_Pro_Perplexity($options);
         $fact_check_result = $perplexity->analyze($content, $job_id);
         
+        error_log('Facty Pro: Perplexity analysis complete');
         Facty_Pro_Action_Scheduler::update_job_status($job_id, 60, 'seo', 'Analyzing SEO...');
         
         // Run SEO analysis (if enabled)
         $seo_result = array();
-        if ($options['enable_seo_analysis']) {
+        if (!empty($options['enable_seo_analysis'])) {
+            error_log('Facty Pro: Starting SEO analysis');
             $seo_analyzer = new Facty_Pro_SEO_Analyzer($options);
             $seo_result = $seo_analyzer->analyze($post, $job_id);
         }
@@ -149,12 +179,14 @@ function facty_pro_process_fact_check_handler($args) {
         
         // Run style analysis (if enabled)
         $style_result = array();
-        if ($options['enable_style_analysis']) {
+        if (!empty($options['enable_style_analysis'])) {
+            error_log('Facty Pro: Starting style analysis');
             $style_analyzer = new Facty_Pro_Style_Analyzer($options);
             $style_result = $style_analyzer->analyze($content, $job_id);
         }
         
         Facty_Pro_Action_Scheduler::update_job_status($job_id, 90, 'saving', 'Saving report...');
+        error_log('Facty Pro: Compiling report');
         
         // Combine all results
         $full_report = array(
@@ -170,12 +202,20 @@ function facty_pro_process_fact_check_handler($args) {
         $seo_score = isset($seo_result['score']) ? intval($seo_result['score']) : 0;
         $readability_score = isset($style_result['readability_score']) ? intval($style_result['readability_score']) : 0;
         
+        error_log('Facty Pro: Scores - Fact: ' . $fact_check_score . ', SEO: ' . $seo_score . ', Readability: ' . $readability_score);
+        
         // Save report to database
         global $wpdb;
         $table = $wpdb->prefix . 'facty_pro_reports';
         $content_hash = hash('sha256', $content);
         
-        $wpdb->insert(
+        // Check if table exists
+        if ($wpdb->get_var("SHOW TABLES LIKE '$table'") != $table) {
+            error_log('Facty Pro Error: Reports table does not exist');
+            throw new Exception('Database table not found. Please deactivate and reactivate the plugin.');
+        }
+        
+        $insert_result = $wpdb->insert(
             $table,
             array(
                 'post_id' => $post_id,
@@ -189,7 +229,13 @@ function facty_pro_process_fact_check_handler($args) {
             array('%d', '%s', '%s', '%d', '%d', '%d', '%s')
         );
         
+        if ($insert_result === false) {
+            error_log('Facty Pro Error: Failed to insert report - ' . $wpdb->last_error);
+            throw new Exception('Failed to save report to database: ' . $wpdb->last_error);
+        }
+        
         $report_id = $wpdb->insert_id;
+        error_log('Facty Pro: Report saved with ID: ' . $report_id);
         
         // Update post meta for quick access
         update_post_meta($post_id, '_facty_pro_last_report', $report_id);
@@ -197,9 +243,11 @@ function facty_pro_process_fact_check_handler($args) {
         update_post_meta($post_id, '_facty_pro_fact_score', $fact_check_score);
         
         Facty_Pro_Action_Scheduler::complete_job($job_id, $report_id);
+        error_log('Facty Pro: Job completed successfully');
         
     } catch (Exception $e) {
         error_log('Facty Pro Error: ' . $e->getMessage());
+        error_log('Facty Pro Error Stack Trace: ' . $e->getTraceAsString());
         Facty_Pro_Action_Scheduler::fail_job($job_id, $e->getMessage());
     }
 }
