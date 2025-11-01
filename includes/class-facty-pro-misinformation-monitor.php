@@ -404,12 +404,17 @@ class Facty_Pro_Misinformation_Monitor {
      */
     public function collect_misinformation() {
         error_log('Facty Pro: Starting misinformation collection');
+        error_log('Facty Pro: API Keys configured - Perplexity: ' . (!empty($this->options['perplexity_api_key']) ? 'YES' : 'NO') . ', Google: ' . (!empty($this->options['google_factcheck_api_key']) ? 'YES' : 'NO'));
+        
+        // Clean up old claims first
+        $this->cleanup_old_claims();
         
         $results_summary = array(
             'google' => 0,
             'full_fact' => 0,
             'perplexity' => 0,
-            'errors' => array()
+            'errors' => array(),
+            'duplicates_filtered' => 0
         );
         
         try {
@@ -420,10 +425,16 @@ class Facty_Pro_Misinformation_Monitor {
             // Collect from all sources
             $results = $collector->collect_all();
             
-            error_log('Facty Pro: Collection returned ' . count($results) . ' total claims');
+            error_log('Facty Pro: Collection returned ' . count($results) . ' total claims from all sources');
+            
+            if (count($results) === 0) {
+                error_log('Facty Pro: WARNING - No claims were collected from any source. Check API keys and network connectivity.');
+            }
             
             // Store results
             $stored_count = 0;
+            $duplicate_count = 0;
+            
             foreach ($results as $claim) {
                 if ($this->store_claim($claim)) {
                     $stored_count++;
@@ -438,16 +449,22 @@ class Facty_Pro_Misinformation_Monitor {
                             $results_summary['perplexity']++;
                         }
                     }
+                } else {
+                    $duplicate_count++;
                 }
             }
             
-            error_log('Facty Pro: Stored ' . $stored_count . ' new claims (Google: ' . $results_summary['google'] . ', Full Fact: ' . $results_summary['full_fact'] . ', Perplexity: ' . $results_summary['perplexity'] . ')');
+            $results_summary['duplicates_filtered'] = $duplicate_count;
+            
+            error_log('Facty Pro: Storage complete - Stored: ' . $stored_count . ', Duplicates filtered: ' . $duplicate_count);
+            error_log('Facty Pro: By source - Google: ' . $results_summary['google'] . ', Full Fact: ' . $results_summary['full_fact'] . ', Perplexity: ' . $results_summary['perplexity']);
             
             // Store last collection status
             update_option('facty_pro_last_collection', array(
                 'timestamp' => current_time('mysql'),
                 'total_found' => count($results),
                 'total_stored' => $stored_count,
+                'duplicates_filtered' => $duplicate_count,
                 'sources' => $results_summary
             ));
             
@@ -464,7 +481,7 @@ class Facty_Pro_Misinformation_Monitor {
     }
     
     /**
-     * Store claim in database (with duplicate check)
+     * Store claim in database (with smart duplicate check)
      */
     private function store_claim($claim) {
         global $wpdb;
@@ -473,14 +490,39 @@ class Facty_Pro_Misinformation_Monitor {
         $normalized = strtolower(trim(preg_replace('/\s+/', ' ', $claim['claim_text'])));
         $content_hash = hash('sha256', $normalized);
         
-        // Check if already exists
+        // Check for exact duplicates in last 30 days only (not forever)
+        $thirty_days_ago = date('Y-m-d H:i:s', strtotime('-30 days'));
         $existing = $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM {$this->table_name} WHERE content_hash = %s",
-            $content_hash
+            "SELECT id FROM {$this->table_name} 
+             WHERE content_hash = %s 
+             AND discovered_date > %s",
+            $content_hash,
+            $thirty_days_ago
         ));
         
         if ($existing) {
+            error_log('Facty Pro: Duplicate claim found (exact match within 30 days): ' . substr($claim['claim_text'], 0, 50));
             return false; // Already exists
+        }
+        
+        // Check for similar claims using fuzzy matching (only in last 14 days)
+        $fourteen_days_ago = date('Y-m-d H:i:s', strtotime('-14 days'));
+        $recent_claims = $wpdb->get_results($wpdb->prepare(
+            "SELECT id, claim_text FROM {$this->table_name} 
+             WHERE discovered_date > %s 
+             AND category = %s
+             LIMIT 50",
+            $fourteen_days_ago,
+            isset($claim['category']) ? $claim['category'] : 'uncategorized'
+        ));
+        
+        // Check similarity with recent claims
+        foreach ($recent_claims as $recent) {
+            $similarity = $this->calculate_similarity($normalized, strtolower($recent->claim_text));
+            if ($similarity > 85) { // 85% similar = likely duplicate
+                error_log('Facty Pro: Similar claim found (' . $similarity . '% match): ' . substr($claim['claim_text'], 0, 50));
+                return false;
+            }
         }
         
         // Insert new claim
@@ -502,7 +544,44 @@ class Facty_Pro_Misinformation_Monitor {
             array('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
         );
         
+        if ($result !== false) {
+            error_log('Facty Pro: NEW claim stored successfully: ' . substr($claim['claim_text'], 0, 80));
+        }
+        
         return $result !== false;
+    }
+    
+    /**
+     * Calculate similarity between two strings (0-100)
+     * Uses similar_text for fuzzy matching
+     */
+    private function calculate_similarity($str1, $str2) {
+        similar_text($str1, $str2, $percent);
+        return round($percent, 2);
+    }
+    
+    /**
+     * Clean up old claims (older than 90 days)
+     * Called automatically during collection
+     */
+    private function cleanup_old_claims() {
+        global $wpdb;
+        
+        // Delete claims older than 90 days that are pending or ignored
+        $ninety_days_ago = date('Y-m-d H:i:s', strtotime('-90 days'));
+        
+        $deleted = $wpdb->query($wpdb->prepare(
+            "DELETE FROM {$this->table_name} 
+             WHERE discovered_date < %s 
+             AND status IN ('pending', 'ignored')",
+            $ninety_days_ago
+        ));
+        
+        if ($deleted > 0) {
+            error_log('Facty Pro: Cleaned up ' . $deleted . ' old claims (older than 90 days)');
+        }
+        
+        return $deleted;
     }
     
     /**

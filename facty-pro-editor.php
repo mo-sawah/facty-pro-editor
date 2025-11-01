@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Facty Pro Editor
  * Description: Advanced AI-powered editorial fact-checking with deep research, SEO analysis, and style suggestions for WordPress editors
- * Version: 1.4.1
+ * Version: 1.4.2
  * Author: Mohamed Sawah
  * Author URI: https://sawahsolutions.com
  * License: GPL v2 or later
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('FACTY_PRO_VERSION', '1.4.1');
+define('FACTY_PRO_VERSION', '1.4.2');
 define('FACTY_PRO_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('FACTY_PRO_PLUGIN_PATH', plugin_dir_path(__FILE__));
 

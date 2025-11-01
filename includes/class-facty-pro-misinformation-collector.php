@@ -83,6 +83,7 @@ class Facty_Pro_Misinformation_Collector {
         try {
             // Search with UK-specific keywords (rotate through them)
             $keyword = $this->uk_keywords[array_rand($this->uk_keywords)];
+            error_log('Facty Pro: Google API searching with keyword: ' . $keyword);
             
             $api_url = add_query_arg(array(
                 'query' => $keyword,
@@ -92,44 +93,87 @@ class Facty_Pro_Misinformation_Collector {
                 'key' => $this->google_api_key
             ), 'https://factchecktools.googleapis.com/v1alpha1/claims:search');
             
-            $response = wp_remote_get($api_url, array('timeout' => 30));
+            $response = wp_remote_get($api_url, array(
+                'timeout' => 30,
+                'user-agent' => 'Facty Pro WordPress Plugin/1.4'
+            ));
             
             if (is_wp_error($response)) {
                 error_log('Facty Pro: Google API error - ' . $response->get_error_message());
                 return $claims;
             }
             
+            $http_code = wp_remote_retrieve_response_code($response);
             $body = wp_remote_retrieve_body($response);
+            
+            if ($http_code !== 200) {
+                error_log('Facty Pro: Google API returned HTTP ' . $http_code);
+                error_log('Facty Pro: Response body: ' . substr($body, 0, 500));
+                return $claims;
+            }
+            
             $data = json_decode($body, true);
             
-            if (isset($data['claims']) && is_array($data['claims'])) {
-                foreach ($data['claims'] as $claim_data) {
-                    // Only process claims rated as false or misleading
-                    $rating = $this->extract_rating($claim_data);
-                    if (!$this->is_false_or_misleading($rating)) {
-                        continue;
-                    }
-                    
-                    // Extract claim details
-                    $claim = array(
-                        'claim_text' => isset($claim_data['text']) ? $claim_data['text'] : 'Unknown claim',
-                        'source' => 'google_factcheck',
-                        'source_url' => $this->extract_source_url($claim_data),
-                        'category' => $this->categorize_claim($claim_data['text']),
-                        'rating' => $rating,
-                        'fact_checker' => $this->extract_fact_checker($claim_data),
-                        'metadata' => array(
-                            'claimant' => isset($claim_data['claimant']) ? $claim_data['claimant'] : '',
-                            'claim_date' => isset($claim_data['claimDate']) ? $claim_data['claimDate'] : '',
-                            'review_date' => $this->extract_review_date($claim_data)
-                        )
-                    );
-                    
-                    $claims[] = $claim;
+            if (!$data) {
+                error_log('Facty Pro: Failed to parse Google API response as JSON');
+                return $claims;
+            }
+            
+            if (isset($data['error'])) {
+                error_log('Facty Pro: Google API error response: ' . print_r($data['error'], true));
+                return $claims;
+            }
+            
+            if (!isset($data['claims'])) {
+                error_log('Facty Pro: Google API returned no claims for keyword: ' . $keyword);
+                return $claims;
+            }
+            
+            if (!is_array($data['claims'])) {
+                error_log('Facty Pro: Google API claims data is not an array');
+                return $claims;
+            }
+            
+            $total_claims = count($data['claims']);
+            error_log('Facty Pro: Google API returned ' . $total_claims . ' claims');
+            
+            $false_claim_count = 0;
+            
+            foreach ($data['claims'] as $claim_data) {
+                // Only process claims rated as false or misleading
+                $rating = $this->extract_rating($claim_data);
+                if (!$this->is_false_or_misleading($rating)) {
+                    error_log('Facty Pro: Skipping claim with rating: ' . $rating);
+                    continue;
                 }
                 
-                error_log('Facty Pro: Found ' . count($claims) . ' claims from Google API');
+                $false_claim_count++;
+                
+                // Validate claim text
+                if (!isset($claim_data['text']) || empty($claim_data['text'])) {
+                    error_log('Facty Pro: Skipping claim with empty text');
+                    continue;
+                }
+                
+                // Extract claim details
+                $claim = array(
+                    'claim_text' => $claim_data['text'],
+                    'source' => 'google_factcheck',
+                    'source_url' => $this->extract_source_url($claim_data),
+                    'category' => $this->categorize_claim($claim_data['text']),
+                    'rating' => $rating,
+                    'fact_checker' => $this->extract_fact_checker($claim_data),
+                    'metadata' => array(
+                        'claimant' => isset($claim_data['claimant']) ? $claim_data['claimant'] : '',
+                        'claim_date' => isset($claim_data['claimDate']) ? $claim_data['claimDate'] : '',
+                        'review_date' => $this->extract_review_date($claim_data)
+                    )
+                );
+                
+                $claims[] = $claim;
             }
+            
+            error_log('Facty Pro: Google API - Found ' . $false_claim_count . ' false/misleading claims out of ' . $total_claims . ' total');
             
         } catch (Exception $e) {
             error_log('Facty Pro: Google collection error - ' . $e->getMessage());
@@ -147,25 +191,56 @@ class Facty_Pro_Misinformation_Collector {
         
         try {
             $rss_url = 'https://fullfact.org/feed/';
-            $response = wp_remote_get($rss_url, array('timeout' => 30));
+            $response = wp_remote_get($rss_url, array(
+                'timeout' => 30,
+                'user-agent' => 'Facty Pro WordPress Plugin/1.4'
+            ));
             
             if (is_wp_error($response)) {
                 error_log('Facty Pro: Full Fact RSS error - ' . $response->get_error_message());
                 return $claims;
             }
             
+            $http_code = wp_remote_retrieve_response_code($response);
+            if ($http_code !== 200) {
+                error_log('Facty Pro: Full Fact RSS returned HTTP ' . $http_code);
+                return $claims;
+            }
+            
             $body = wp_remote_retrieve_body($response);
+            
+            if (empty($body)) {
+                error_log('Facty Pro: Full Fact RSS returned empty body');
+                return $claims;
+            }
+            
+            // Suppress XML parsing errors
+            libxml_use_internal_errors(true);
             
             // Parse RSS feed
             $rss = simplexml_load_string($body);
             
             if ($rss === false) {
-                error_log('Facty Pro: Failed to parse Full Fact RSS');
+                $errors = libxml_get_errors();
+                error_log('Facty Pro: Failed to parse Full Fact RSS. Errors: ' . print_r($errors, true));
+                libxml_clear_errors();
                 return $claims;
             }
             
+            libxml_clear_errors();
+            
+            // Check if we have items
+            if (!isset($rss->channel->item)) {
+                error_log('Facty Pro: Full Fact RSS has no items');
+                return $claims;
+            }
+            
+            $item_count = count($rss->channel->item);
+            error_log('Facty Pro: Full Fact RSS has ' . $item_count . ' items');
+            
             // Process only recent items (last 7 days)
             $week_ago = strtotime('-7 days');
+            $processed_count = 0;
             
             foreach ($rss->channel->item as $item) {
                 $pub_date = strtotime((string)$item->pubDate);
@@ -178,8 +253,18 @@ class Facty_Pro_Misinformation_Collector {
                 $description = (string)$item->description;
                 $link = (string)$item->link;
                 
+                // Skip if title or description is empty
+                if (empty($title) || empty($description)) {
+                    continue;
+                }
+                
                 // Extract claim from title/description
                 $claim_text = $this->extract_claim_from_full_fact($title, $description);
+                
+                // Skip if claim is too short
+                if (strlen($claim_text) < 20) {
+                    continue;
+                }
                 
                 $claim = array(
                     'claim_text' => $claim_text,
@@ -196,9 +281,10 @@ class Facty_Pro_Misinformation_Collector {
                 );
                 
                 $claims[] = $claim;
+                $processed_count++;
             }
             
-            error_log('Facty Pro: Found ' . count($claims) . ' claims from Full Fact RSS');
+            error_log('Facty Pro: Full Fact - Processed ' . $processed_count . ' recent items, created ' . count($claims) . ' claims');
             
         } catch (Exception $e) {
             error_log('Facty Pro: Full Fact collection error - ' . $e->getMessage());
@@ -211,11 +297,13 @@ class Facty_Pro_Misinformation_Collector {
      * Collect from Perplexity AI search
      */
     private function collect_from_perplexity() {
-        error_log('Facty Pro: Collecting from Perplexity AI');
+        error_log('Facty Pro: Collecting from Perplexity AI search');
         $claims = array();
         
         try {
-            $prompt = "Search for the latest FALSE CLAIMS and MISINFORMATION that have been spreading in UK news and social media in the past 24 hours. 
+            $current_date = current_time('F j, Y');
+            
+            $prompt = "Today is {$current_date}. Search for FALSE claims and MISINFORMATION currently spreading in UK media, social media, and news in the past 7 days.
 
 Focus ONLY on claims that have been identified as FALSE or MISLEADING by fact-checkers.
 
@@ -254,6 +342,8 @@ Return ONLY the JSON array, no other text.";
                 'search_recency_filter' => 'day'
             );
             
+            error_log('Facty Pro: Sending request to Perplexity API');
+            
             $response = wp_remote_post('https://api.perplexity.ai/chat/completions', array(
                 'headers' => array(
                     'Authorization' => 'Bearer ' . $this->perplexity_api_key,
@@ -268,47 +358,83 @@ Return ONLY the JSON array, no other text.";
                 return $claims;
             }
             
+            $http_code = wp_remote_retrieve_response_code($response);
             $body = wp_remote_retrieve_body($response);
+            
+            if ($http_code !== 200) {
+                error_log('Facty Pro: Perplexity API returned HTTP ' . $http_code);
+                error_log('Facty Pro: Response body: ' . substr($body, 0, 500));
+                return $claims;
+            }
+            
             $data = json_decode($body, true);
             
-            if (isset($data['choices'][0]['message']['content'])) {
-                $content = trim($data['choices'][0]['message']['content']);
-                
-                // Clean up JSON response
-                $content = preg_replace('/^```json\s*/m', '', $content);
-                $content = preg_replace('/\s*```$/m', '', $content);
-                $content = trim($content);
-                
-                $perplexity_claims = json_decode($content, true);
-                
-                if (is_array($perplexity_claims)) {
-                    foreach ($perplexity_claims as $claim_data) {
-                        if (!isset($claim_data['claim'])) {
-                            continue;
-                        }
-                        
-                        $claim = array(
-                            'claim_text' => $claim_data['claim'],
-                            'source' => 'perplexity_search',
-                            'source_url' => '',
-                            'category' => isset($claim_data['category']) ? $claim_data['category'] : 'uncategorized',
-                            'rating' => 'False',
-                            'fact_checker' => 'Perplexity AI',
-                            'metadata' => array(
-                                'source_description' => isset($claim_data['source']) ? $claim_data['source'] : '',
-                                'explanation' => isset($claim_data['explanation']) ? $claim_data['explanation'] : ''
-                            )
-                        );
-                        
-                        $claims[] = $claim;
-                    }
+            if (!$data) {
+                error_log('Facty Pro: Failed to parse Perplexity response as JSON');
+                return $claims;
+            }
+            
+            if (isset($data['error'])) {
+                error_log('Facty Pro: Perplexity API error: ' . print_r($data['error'], true));
+                return $claims;
+            }
+            
+            if (!isset($data['choices'][0]['message']['content'])) {
+                error_log('Facty Pro: Perplexity response missing expected content');
+                return $claims;
+            }
+            
+            $content = trim($data['choices'][0]['message']['content']);
+            error_log('Facty Pro: Perplexity response length: ' . strlen($content) . ' chars');
+            
+            // Clean up JSON response
+            $content = preg_replace('/^```json\s*/m', '', $content);
+            $content = preg_replace('/\s*```$/m', '', $content);
+            $content = trim($content);
+            
+            $perplexity_claims = json_decode($content, true);
+            
+            if (!is_array($perplexity_claims)) {
+                error_log('Facty Pro: Perplexity response is not a valid JSON array');
+                error_log('Facty Pro: Content was: ' . substr($content, 0, 500));
+                return $claims;
+            }
+            
+            error_log('Facty Pro: Perplexity returned ' . count($perplexity_claims) . ' potential claims');
+            
+            foreach ($perplexity_claims as $claim_data) {
+                if (!isset($claim_data['claim']) || empty($claim_data['claim'])) {
+                    error_log('Facty Pro: Skipping Perplexity claim with empty text');
+                    continue;
                 }
                 
-                error_log('Facty Pro: Found ' . count($claims) . ' claims from Perplexity');
+                // Skip claims that are too short
+                if (strlen($claim_data['claim']) < 20) {
+                    error_log('Facty Pro: Skipping too-short claim: ' . $claim_data['claim']);
+                    continue;
+                }
+                
+                $claim = array(
+                    'claim_text' => $claim_data['claim'],
+                    'source' => 'perplexity_search',
+                    'source_url' => '',
+                    'category' => isset($claim_data['category']) ? $claim_data['category'] : 'uncategorized',
+                    'rating' => 'False',
+                    'fact_checker' => 'Perplexity AI',
+                    'metadata' => array(
+                        'source_description' => isset($claim_data['source']) ? $claim_data['source'] : '',
+                        'explanation' => isset($claim_data['explanation']) ? $claim_data['explanation'] : ''
+                    )
+                );
+                
+                $claims[] = $claim;
             }
+            
+            error_log('Facty Pro: Created ' . count($claims) . ' valid claims from Perplexity');
             
         } catch (Exception $e) {
             error_log('Facty Pro: Perplexity collection error - ' . $e->getMessage());
+            error_log('Facty Pro: Stack trace: ' . $e->getTraceAsString());
         }
         
         return $claims;
