@@ -152,6 +152,35 @@ class Facty_Pro_Misinformation_Monitor {
                 <p class="subtitle">Track and debunk false claims spreading in UK media and social networks</p>
             </div>
             
+            <?php
+            // Show configuration warnings
+            $warnings = array();
+            if (empty($this->options['perplexity_api_key'])) {
+                $warnings[] = 'Perplexity API key not configured - article generation will not work';
+            }
+            if (empty($this->options['google_factcheck_api_key'])) {
+                $warnings[] = 'Google Fact Check API key not configured - Google source will be skipped';
+            }
+            
+            if (!empty($warnings)) {
+                ?>
+                <div class="facty-pro-notice error" style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 16px; margin: 20px 0; border-radius: 8px;">
+                    <h3 style="margin: 0 0 12px 0; color: #991b1b;">⚠️ Configuration Required</h3>
+                    <ul style="margin: 0; padding-left: 20px;">
+                        <?php foreach ($warnings as $warning): ?>
+                            <li style="color: #991b1b;"><?php echo esc_html($warning); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <p style="margin: 12px 0 0 0;">
+                        <a href="<?php echo admin_url('options-general.php?page=facty-pro-settings'); ?>" class="button button-primary">
+                            Configure API Keys
+                        </a>
+                    </p>
+                </div>
+                <?php
+            }
+            ?>
+            
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon pending">
@@ -198,7 +227,7 @@ class Facty_Pro_Misinformation_Monitor {
                 <div class="controls-left">
                     <button type="button" class="button button-primary" id="refresh-claims">
                         <span class="dashicons dashicons-update"></span>
-                        Refresh Now
+                        <span>Refresh Now</span>
                     </button>
                     
                     <div class="filter-group">
@@ -350,9 +379,23 @@ class Facty_Pro_Misinformation_Monitor {
         // Trigger collection
         $this->collect_misinformation();
         
+        // Get collection status
+        $last_collection = get_option('facty_pro_last_collection', array());
+        
+        $message = 'Collection completed';
+        if (isset($last_collection['error'])) {
+            $message = 'Collection failed: ' . $last_collection['error'];
+        } elseif (isset($last_collection['total_stored'])) {
+            $message = 'Found ' . $last_collection['total_stored'] . ' new claims';
+            if ($last_collection['total_stored'] === 0 && $last_collection['total_found'] > 0) {
+                $message .= ' (all duplicates)';
+            }
+        }
+        
         wp_send_json_success(array(
-            'message' => 'Claims refreshed successfully',
-            'timestamp' => current_time('mysql')
+            'message' => $message,
+            'timestamp' => current_time('mysql'),
+            'debug' => $last_collection
         ));
     }
     
@@ -362,6 +405,13 @@ class Facty_Pro_Misinformation_Monitor {
     public function collect_misinformation() {
         error_log('Facty Pro: Starting misinformation collection');
         
+        $results_summary = array(
+            'google' => 0,
+            'full_fact' => 0,
+            'perplexity' => 0,
+            'errors' => array()
+        );
+        
         try {
             // Initialize collector
             require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-misinformation-collector.php';
@@ -370,15 +420,46 @@ class Facty_Pro_Misinformation_Monitor {
             // Collect from all sources
             $results = $collector->collect_all();
             
+            error_log('Facty Pro: Collection returned ' . count($results) . ' total claims');
+            
             // Store results
+            $stored_count = 0;
             foreach ($results as $claim) {
-                $this->store_claim($claim);
+                if ($this->store_claim($claim)) {
+                    $stored_count++;
+                    
+                    // Track by source
+                    if (isset($claim['source'])) {
+                        if ($claim['source'] === 'google_factcheck') {
+                            $results_summary['google']++;
+                        } elseif ($claim['source'] === 'full_fact_rss') {
+                            $results_summary['full_fact']++;
+                        } elseif ($claim['source'] === 'perplexity_search') {
+                            $results_summary['perplexity']++;
+                        }
+                    }
+                }
             }
             
-            error_log('Facty Pro: Collection complete - ' . count($results) . ' claims processed');
+            error_log('Facty Pro: Stored ' . $stored_count . ' new claims (Google: ' . $results_summary['google'] . ', Full Fact: ' . $results_summary['full_fact'] . ', Perplexity: ' . $results_summary['perplexity'] . ')');
+            
+            // Store last collection status
+            update_option('facty_pro_last_collection', array(
+                'timestamp' => current_time('mysql'),
+                'total_found' => count($results),
+                'total_stored' => $stored_count,
+                'sources' => $results_summary
+            ));
             
         } catch (Exception $e) {
             error_log('Facty Pro: Collection error - ' . $e->getMessage());
+            error_log('Facty Pro: Error trace - ' . $e->getTraceAsString());
+            
+            // Store error status
+            update_option('facty_pro_last_collection', array(
+                'timestamp' => current_time('mysql'),
+                'error' => $e->getMessage()
+            ));
         }
     }
     

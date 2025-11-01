@@ -35,19 +35,40 @@ class Facty_Pro_Misinformation_Collector {
         
         // Collect from Google Fact Check API
         if (!empty($this->google_api_key)) {
-            $google_claims = $this->collect_from_google();
-            $all_claims = array_merge($all_claims, $google_claims);
+            try {
+                $google_claims = $this->collect_from_google();
+                $all_claims = array_merge($all_claims, $google_claims);
+                error_log('Facty Pro: Google collection successful - ' . count($google_claims) . ' claims');
+            } catch (Exception $e) {
+                error_log('Facty Pro: Google collection failed - ' . $e->getMessage());
+            }
+        } else {
+            error_log('Facty Pro: Google API key not configured, skipping Google collection');
         }
         
-        // Collect from Full Fact RSS
-        $fullfact_claims = $this->collect_from_full_fact();
-        $all_claims = array_merge($all_claims, $fullfact_claims);
+        // Collect from Full Fact RSS (always try this - no API key needed)
+        try {
+            $fullfact_claims = $this->collect_from_full_fact();
+            $all_claims = array_merge($all_claims, $fullfact_claims);
+            error_log('Facty Pro: Full Fact collection successful - ' . count($fullfact_claims) . ' claims');
+        } catch (Exception $e) {
+            error_log('Facty Pro: Full Fact collection failed - ' . $e->getMessage());
+        }
         
         // Collect from Perplexity search
         if (!empty($this->perplexity_api_key)) {
-            $perplexity_claims = $this->collect_from_perplexity();
-            $all_claims = array_merge($all_claims, $perplexity_claims);
+            try {
+                $perplexity_claims = $this->collect_from_perplexity();
+                $all_claims = array_merge($all_claims, $perplexity_claims);
+                error_log('Facty Pro: Perplexity collection successful - ' . count($perplexity_claims) . ' claims');
+            } catch (Exception $e) {
+                error_log('Facty Pro: Perplexity collection failed - ' . $e->getMessage());
+            }
+        } else {
+            error_log('Facty Pro: Perplexity API key not configured, skipping Perplexity collection');
         }
+        
+        error_log('Facty Pro: Total claims collected from all sources: ' . count($all_claims));
         
         return $all_claims;
     }
