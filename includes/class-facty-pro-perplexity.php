@@ -115,14 +115,16 @@ class Facty_Pro_Perplexity {
             \"type\": \"Factual Error\" | \"Outdated\" | \"Misleading\" | \"Unverified\" | \"Missing Context\",
             \"severity\": \"high\" | \"medium\" | \"low\",
             \"what_article_says\": \"The problematic claim\",
-            \"the_problem\": \"Why it's wrong/misleading/unverified\",
-            \"actual_facts\": \"What's actually true (with sources)\",
-            \"how_to_fix\": \"Specific suggestion for editor\",
+            \"the_problem\": \"Detailed explanation of why this is wrong/misleading/unverified. Be specific about what contradicts this claim.\",
+            \"actual_facts\": \"What is actually true according to verified sources. Include specific details, numbers, dates.\",
+            \"why_it_matters\": \"Why this inaccuracy is important for readers to know\",
+            \"how_to_fix\": \"Specific, actionable suggestion: 'Change [X] to [Y]' or 'Add context about [Z]' or 'Remove this claim because [reason]'\",
             \"sources\": [
                 {
-                    \"title\": \"Source\",
+                    \"title\": \"Source name\",
                     \"url\": \"https://...\",
-                    \"date\": \"2025-11-01\"
+                    \"date\": \"2025-11-01\",
+                    \"quote\": \"Brief relevant quote from source that contradicts or supports the claim\"
                 }
             ]
         }

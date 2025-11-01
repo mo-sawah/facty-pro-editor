@@ -113,7 +113,7 @@ class Facty_Pro_Meta_Box {
                 <div class="facty-pro-header-right">
                     <button type="button" class="button button-primary button-large" id="facty-pro-start-check">
                         <span class="dashicons dashicons-search"></span>
-                        Start Fact Check
+                        <?php echo $report ? 'Recheck Article' : 'Start Fact Check'; ?>
                     </button>
                 </div>
             </div>
@@ -126,9 +126,17 @@ class Facty_Pro_Meta_Box {
                         <div class="report-summary-label">Last Checked</div>
                         <div class="report-summary-value">
                             <?php 
-                            $created_timestamp = strtotime(get_date_from_gmt($report->created_at));
-                            $current_timestamp = current_time('timestamp');
-                            echo human_time_diff($created_timestamp, $current_timestamp) . ' ago'; 
+                            // Get the created_at timestamp from database (in UTC)
+                            $report_time = strtotime($report->created_at);
+                            $current_time = time();
+                            $time_diff = $current_time - $report_time;
+                            
+                            // Format time difference
+                            if ($time_diff < 60) {
+                                echo 'Just now';
+                            } else {
+                                echo human_time_diff($report_time, $current_time) . ' ago';
+                            }
                             ?>
                         </div>
                     </div>
@@ -161,11 +169,6 @@ class Facty_Pro_Meta_Box {
                 </div>
                 
                 <div class="report-actions">
-                    <button type="button" class="button" id="facty-pro-view-report" data-report-id="<?php echo $report->id; ?>">
-                        <span class="dashicons dashicons-visibility"></span>
-                        View Full Report
-                    </button>
-                    
                     <?php if ($report->status === 'completed' && current_user_can('publish_posts')): ?>
                     <button type="button" class="button button-primary" id="facty-pro-verify-post" data-report-id="<?php echo $report->id; ?>">
                         <span class="dashicons dashicons-yes-alt"></span>
@@ -182,6 +185,103 @@ class Facty_Pro_Meta_Box {
                     </div>
                     <?php endif; ?>
                 </div>
+                
+                <!-- Display Full Report -->
+                <?php 
+                $report_data = json_decode($report->report, true);
+                $fact_check = isset($report_data['fact_check']) ? $report_data['fact_check'] : array();
+                $seo = isset($report_data['seo']) ? $report_data['seo'] : array();
+                $style = isset($report_data['style']) ? $report_data['style'] : array();
+                
+                if (!empty($fact_check)): ?>
+                <div class="facty-pro-report-detailed">
+                    <h3 style="margin: 20px 0 10px 0; font-size: 16px;">📋 Detailed Fact-Check Report</h3>
+                    
+                    <?php if (!empty($fact_check['issues'])): ?>
+                    <div class="report-section">
+                        <h4 style="color: #dc3545; margin: 15px 0 10px 0;">⚠️ Issues Found (<?php echo count($fact_check['issues']); ?>)</h4>
+                        <?php foreach ($fact_check['issues'] as $issue): ?>
+                        <div class="issue-item-detailed severity-<?php echo esc_attr($issue['severity']); ?>" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-left: 4px solid #dc3545; border-radius: 4px;">
+                            <div style="font-weight: 600; margin-bottom: 8px; font-size: 15px;">
+                                "<?php echo esc_html($issue['claim']); ?>"
+                            </div>
+                            
+                            <div style="margin: 10px 0; padding: 10px; background: #fff; border-radius: 4px;">
+                                <strong style="color: #dc3545;">❌ Problem:</strong>
+                                <p style="margin: 5px 0 0 0;"><?php echo esc_html($issue['the_problem']); ?></p>
+                            </div>
+                            
+                            <?php if (!empty($issue['actual_facts'])): ?>
+                            <div style="margin: 10px 0; padding: 10px; background: #fff; border-radius: 4px;">
+                                <strong style="color: #10b981;">✓ Actual Facts:</strong>
+                                <p style="margin: 5px 0 0 0;"><?php echo esc_html($issue['actual_facts']); ?></p>
+                            </div>
+                            <?php endif; ?>
+                            
+                            <?php if (!empty($issue['how_to_fix'])): ?>
+                            <div style="margin: 10px 0; padding: 10px; background: #e8f5e9; border-radius: 4px;">
+                                <strong style="color: #2e7d32;">💡 Suggested Fix:</strong>
+                                <p style="margin: 5px 0 0 0;"><?php echo esc_html($issue['how_to_fix']); ?></p>
+                            </div>
+                            <?php endif; ?>
+                            
+                            <?php if (!empty($issue['sources']) || !empty($issue['source'])): 
+                                $sources = !empty($issue['sources']) ? $issue['sources'] : (isset($issue['source']) ? [$issue['source']] : []);
+                                if (!empty($sources)):
+                            ?>
+                            <div style="margin: 10px 0; padding: 10px; background: #f0f9ff; border-radius: 4px;">
+                                <strong style="color: #0369a1;">📚 Sources:</strong>
+                                <ul style="margin: 5px 0 0 20px; padding: 0;">
+                                    <?php foreach ($sources as $source): 
+                                        if (is_array($source) && isset($source['url'])):
+                                    ?>
+                                    <li style="margin: 3px 0;">
+                                        <a href="<?php echo esc_url($source['url']); ?>" target="_blank" style="color: #0369a1; text-decoration: none;">
+                                            <?php echo esc_html(isset($source['title']) ? $source['title'] : $source['url']); ?>
+                                        </a>
+                                        <?php if (isset($source['date'])): ?>
+                                        <span style="color: #64748b; font-size: 12px;">(<?php echo esc_html($source['date']); ?>)</span>
+                                        <?php endif; ?>
+                                    </li>
+                                    <?php 
+                                        endif;
+                                    endforeach; ?>
+                                </ul>
+                            </div>
+                            <?php endif; endif; ?>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <?php if (!empty($fact_check['verified_facts'])): ?>
+                    <div class="report-section" style="margin-top: 20px;">
+                        <h4 style="color: #10b981; margin: 15px 0 10px 0;">✅ Verified Facts (<?php echo count($fact_check['verified_facts']); ?>)</h4>
+                        <?php foreach ($fact_check['verified_facts'] as $fact): ?>
+                        <div style="margin-bottom: 10px; padding: 12px; background: #f0fdf4; border-left: 4px solid #10b981; border-radius: 4px;">
+                            <div style="font-weight: 500;">
+                                "<?php echo esc_html($fact['claim']); ?>"
+                            </div>
+                            <div style="margin-top: 5px; font-size: 13px; color: #059669;">
+                                Confidence: <?php echo ucfirst(esc_html($fact['confidence'])); ?>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <?php if (!empty($seo['recommendations'])): ?>
+                    <div class="report-section" style="margin-top: 20px;">
+                        <h4 style="margin: 15px 0 10px 0;">🔍 SEO Recommendations</h4>
+                        <ul style="margin: 5px 0 0 20px; padding: 0;">
+                            <?php foreach (array_slice($seo['recommendations'], 0, 5) as $rec): ?>
+                            <li style="margin: 5px 0; color: #475569;"><?php echo esc_html($rec); ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
             
@@ -200,11 +300,6 @@ class Facty_Pro_Meta_Box {
                 </div>
                 
                 <div class="progress-message">Starting analysis...</div>
-            </div>
-            
-            <!-- Report Container (hidden by default) -->
-            <div id="facty-pro-report" class="facty-pro-report" style="display: none;">
-                <!-- Report will be dynamically inserted here -->
             </div>
             
             <!-- Features Info -->

@@ -72,9 +72,10 @@ class Facty_Pro_Core {
         // Frontend assets
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_assets'));
         
-        // Frontend badge
+        // Frontend badge - integrate with post meta instead of content
         if ($this->options['show_frontend_badge']) {
-            add_filter('the_content', array($this, 'add_verification_badge'));
+            add_filter('bunyad_post_meta_item', array($this, 'add_badge_to_meta'), 10, 2);
+            add_filter('bunyad_post_meta_below_items', array($this, 'add_facty_badge_item'), 10, 1);
         }
         
         // AJAX handlers
@@ -102,42 +103,52 @@ class Facty_Pro_Core {
     }
     
     /**
-     * Add verification badge to content
+     * Add facty_badge to post meta items list
      */
-    public function add_verification_badge($content) {
+    public function add_facty_badge_item($items) {
         if (!is_single()) {
-            return $content;
+            return $items;
+        }
+        
+        $post_id = get_the_ID();
+        $report = $this->get_latest_report($post_id);
+        
+        // Only add badge item if article is verified
+        if ($report && $report->status === 'verified') {
+            $items[] = 'facty_badge';
+        }
+        
+        return $items;
+    }
+    
+    /**
+     * Render the badge as a post meta item
+     */
+    public function add_badge_to_meta($output, $item) {
+        if ($item !== 'facty_badge' || !is_single()) {
+            return $output;
         }
         
         $post_id = get_the_ID();
         $report = $this->get_latest_report($post_id);
         
         if (!$report || $report->status !== 'verified') {
-            return $content;
+            return $output;
         }
         
         $score = intval($report->fact_check_score);
         $badge_class = $this->get_badge_class($score);
         $status_text = $this->get_status_text($score);
         
-        $badge_html = sprintf(
-            '<div class="facty-pro-badge %s">
-                <div class="facty-pro-badge-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-                    </svg>
-                </div>
-                <div class="facty-pro-badge-content">
-                    <strong>Fact-Checked:</strong> %s
-                    <span class="facty-pro-badge-score">Score: %d/100</span>
-                </div>
-            </div>',
+        return sprintf(
+            '<span class="meta-item facty-pro-badge-inline %s" title="Fact-checked and verified">
+                <i class="tsi tsi-check-circle"></i>
+                <span class="badge-text">Fact-Checked</span>
+                <span class="badge-score">%d/100</span>
+            </span>',
             esc_attr($badge_class),
-            esc_html($status_text),
             $score
         );
-        
-        return $badge_html . $content;
     }
     
     /**

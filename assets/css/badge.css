@@ -1,4 +1,54 @@
-/* Facty Pro Frontend Badge */
+/* Facty Pro Frontend Badge - Inline Post Meta Style */
+
+.facty-pro-badge-inline {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.facty-pro-badge-inline.facty-pro-badge-excellent {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.facty-pro-badge-inline.facty-pro-badge-good {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.facty-pro-badge-inline.facty-pro-badge-fair {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.facty-pro-badge-inline.facty-pro-badge-poor {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.facty-pro-badge-inline i {
+    font-size: 14px;
+}
+
+.facty-pro-badge-inline .badge-text {
+    font-weight: 600;
+}
+
+.facty-pro-badge-inline .badge-score {
+    margin-left: 4px;
+    padding: 2px 6px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* Legacy badge styles (kept for backwards compatibility) */
 
 .facty-pro-badge {
     display: flex;
