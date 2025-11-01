@@ -177,7 +177,7 @@ function facty_pro_process_fact_check_handler($post_id, $job_id, $options) {
         
         if ($use_multistep) {
             error_log('Facty Pro: Using multi-step analyzer for enhanced accuracy');
-            $analyzer = new Facty_Perplexity_MultiStep_Analyzer($options);
+            $analyzer = new Facty_Pro_Perplexity_MultiStep_Analyzer($options);
             $fact_check_result = $analyzer->analyze($content, $job_id);
         } else {
             error_log('Facty Pro: Using single-step analyzer');

@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class Facty_Perplexity_MultiStep_Analyzer {
+class Facty_Pro_Perplexity_MultiStep_Analyzer {
     
     private $options;
     
