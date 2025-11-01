@@ -124,7 +124,13 @@ class Facty_Pro_Meta_Box {
                 <div class="report-summary">
                     <div class="report-summary-item">
                         <div class="report-summary-label">Last Checked</div>
-                        <div class="report-summary-value"><?php echo human_time_diff(strtotime($report->created_at), current_time('timestamp')) . ' ago'; ?></div>
+                        <div class="report-summary-value">
+                            <?php 
+                            $created_timestamp = strtotime(get_date_from_gmt($report->created_at));
+                            $current_timestamp = current_time('timestamp');
+                            echo human_time_diff($created_timestamp, $current_timestamp) . ' ago'; 
+                            ?>
+                        </div>
                     </div>
                     <div class="report-summary-item">
                         <div class="report-summary-label">Fact Check Score</div>

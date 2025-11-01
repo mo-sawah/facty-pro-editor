@@ -1,79 +1,101 @@
-# Facty Pro Editor - Fixes
+# Facty Pro Editor - Update v2.0
 
-## 🚀 Quick Install
+## 🚨 Critical Fixes
 
-### Method 1: Automatic (Linux/Mac)
-```bash
-cd /path/to/your/wordpress
-bash install-fix.sh
+1. ✅ **Fixed:** Satire detection too aggressive (articles getting 100 score)
+2. ✅ **Fixed:** Content not being fully read by AI
+3. ✅ **Fixed:** "Last checked 60 minutes ago" bug
+4. ✅ **Fixed:** Analysis completing too fast
+5. ✅ **Added:** Multi-step analyzer for enhanced accuracy
+
+---
+
+## 📦 Quick Install
+
+### Files to Replace:
+```
+facty-pro-editor.php
+includes/class-facty-pro-action-scheduler.php
+includes/class-facty-pro-core.php
+includes/class-facty-pro-perplexity.php
+includes/class-facty-pro-meta-box.php
+includes/class-facty-pro-admin.php
+includes/class-facty-perplexity-multistep-analyzer.php (NEW FILE)
+assets/css/editor.css
 ```
 
-### Method 2: Manual (All Systems)
-1. **Backup first:**
-   - Download/backup your current `wp-content/plugins/facty-pro-editor/` folder
-
-2. **Copy these files to your server:**
-   - `includes/class-facty-pro-action-scheduler.php` → `wp-content/plugins/facty-pro-editor/includes/`
-   - `includes/class-facty-pro-core.php` → `wp-content/plugins/facty-pro-editor/includes/`
-   - `includes/class-facty-pro-perplexity.php` → `wp-content/plugins/facty-pro-editor/includes/`
-   - `assets/css/editor.css` → `wp-content/plugins/facty-pro-editor/assets/css/`
-
-3. **Clear caches and refresh**
+### Installation:
+1. Backup your current plugin folder
+2. Replace the files above
+3. Clear all caches
+4. Test on any post
 
 ---
 
-## 🐛 What Was Fixed
+## 🎯 What's Fixed
 
-1. **Critical Bug:** Action Scheduler argument passing error ✅
-2. **Analysis Hanging:** Proper error handling and validation ✅
-3. **Missing AJAX Handler:** Added report retrieval endpoint ✅
-4. **UI:** Replaced purple gradient with black & green theme ✅
-5. **Logging:** Comprehensive debug logging throughout ✅
+### Before:
+- Articles marked as "satire" instantly → 100 score
+- AI only reading ~200 characters
+- Timestamp always "60 minutes ago"
+- Analysis done in 4 seconds
 
----
-
-## 📖 Full Documentation
-
-See **FIX_SUMMARY.md** for:
-- Detailed explanation of each fix
-- Debugging guide
-- Troubleshooting steps
-- Expected behavior after fix
+### After:
+- All articles fully analyzed
+- AI reads full content (logs word count)
+- Accurate timestamps
+- Proper analysis time (10-90 seconds depending on mode)
 
 ---
 
-## ✅ Test After Installation
+## 🆕 New Feature: Multi-Step Analysis
 
-1. Go to any post in WordPress admin
-2. Scroll to "Facty Pro: Editorial Fact Checker" meta box
-3. Click "Start Fact Check"
-4. Watch progress bar update
-5. Check results appear after completion
+**Enable in:** Settings → Facty Pro Editor → "Use Multi-Step Analyzer"
 
----
+### Single-Step (Default):
+- Fast (10 seconds)
+- 1 API call
+- Good for most articles
 
-## 🆘 Need Help?
-
-1. Enable debug logging in wp-config.php:
-   ```php
-   define('WP_DEBUG', true);
-   define('WP_DEBUG_LOG', true);
-   ```
-
-2. Check `/wp-content/debug.log` for detailed logs
-
-3. Look for "Facty Pro:" entries in the log
+### Multi-Step (Premium):
+- Thorough (30-90 seconds)
+- Multiple API calls (one per claim)
+- Best accuracy
+- More detailed reports
 
 ---
 
-## 🎨 UI Changes
+## 📖 Documentation
 
-- Background: Black (#000)
-- Accent: Emerald Green (#10b981)
-- Modern, professional design
-- Better contrast and readability
+- **UPDATE_GUIDE.md** - Complete update documentation
+- **FIX_SUMMARY.md** - Technical details of all fixes (from v1)
 
 ---
 
-**Fixed Version:** 1.0.2
+## ✅ Quick Test
+
+After updating:
+
+1. Go to any post
+2. Click "Start Fact Check"
+3. Watch for progress updates
+4. Check debug.log for: `Facty Pro: Content prepared - X characters, Y words`
+5. Verify score is reasonable (not always 100)
+
+---
+
+## 🐛 Still Having Issues?
+
+Enable debug logging in `wp-config.php`:
+```php
+define('WP_DEBUG', true);
+define('WP_DEBUG_LOG', true);
+```
+
+Check `/wp-content/debug.log` for entries starting with "Facty Pro:"
+
+---
+
+**Version:** 2.0
 **Date:** November 1, 2025
+**Critical Update - Install Immediately**

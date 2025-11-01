@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Facty Pro Editor
  * Description: Advanced AI-powered editorial fact-checking with deep research, SEO analysis, and style suggestions for WordPress editors
- * Version: 1.0.3
+ * Version: 1.1.0
  * Author: Mohamed Sawah
  * Author URI: https://sawahsolutions.com
  * License: GPL v2 or later
@@ -17,13 +17,14 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('FACTY_PRO_VERSION', '1.0.3');
+define('FACTY_PRO_VERSION', '1.1.0');
 define('FACTY_PRO_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('FACTY_PRO_PLUGIN_PATH', plugin_dir_path(__FILE__));
 
 // Include required files
 require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-action-scheduler.php';
 require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-perplexity.php';
+require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-perplexity-multistep-analyzer.php';
 require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-seo-analyzer.php';
 require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-style-analyzer.php';
 require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-meta-box.php';
@@ -85,7 +86,9 @@ function facty_pro_activate() {
         'show_frontend_badge' => true,
         'require_verification' => true,
         'add_schema_markup' => true,
-        'recency_filter' => 'week'
+        'recency_filter' => 'week',
+        'use_multistep_analyzer' => false,
+        'perplexity_multistep_max_claims' => 10
     );
     
     if (!get_option('facty_pro_options')) {

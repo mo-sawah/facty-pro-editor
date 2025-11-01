@@ -149,8 +149,20 @@ function facty_pro_process_fact_check_handler($post_id, $job_id, $options) {
         
         error_log('Facty Pro: Retrieved post - Title: ' . $post->post_title);
         
+        // Prepare content for analysis
         $content = $post->post_title . "\n\n" . $post->post_content;
+        
+        // Apply WordPress content filters to expand shortcodes, etc.
+        $content = apply_filters('the_content', $content);
+        
+        // Strip HTML tags but keep text
         $content = wp_strip_all_tags($content);
+        
+        // Clean up whitespace
+        $content = trim(preg_replace('/\s+/', ' ', $content));
+        
+        $word_count = str_word_count($content);
+        error_log('Facty Pro: Content prepared - ' . strlen($content) . ' characters, ' . $word_count . ' words');
         
         if (empty(trim($content))) {
             error_log('Facty Pro Error: Post content is empty');
@@ -158,13 +170,22 @@ function facty_pro_process_fact_check_handler($post_id, $job_id, $options) {
         }
         
         Facty_Pro_Action_Scheduler::update_job_status($job_id, 10, 'analyzing', 'Extracting content...');
-        error_log('Facty Pro: Starting Perplexity analysis');
+        error_log('Facty Pro: Starting fact-check analysis');
         
-        // Run fact-check analysis
-        $perplexity = new Facty_Pro_Perplexity($options);
-        $fact_check_result = $perplexity->analyze($content, $job_id);
+        // Choose analyzer based on settings
+        $use_multistep = !empty($options['use_multistep_analyzer']);
         
-        error_log('Facty Pro: Perplexity analysis complete');
+        if ($use_multistep) {
+            error_log('Facty Pro: Using multi-step analyzer for enhanced accuracy');
+            $analyzer = new Facty_Perplexity_MultiStep_Analyzer($options);
+            $fact_check_result = $analyzer->analyze($content, $job_id);
+        } else {
+            error_log('Facty Pro: Using single-step analyzer');
+            $perplexity = new Facty_Pro_Perplexity($options);
+            $fact_check_result = $perplexity->analyze($content, $job_id);
+        }
+        
+        error_log('Facty Pro: Fact-check analysis complete');
         Facty_Pro_Action_Scheduler::update_job_status($job_id, 60, 'seo', 'Analyzing SEO...');
         
         // Run SEO analysis (if enabled)

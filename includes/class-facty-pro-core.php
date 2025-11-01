@@ -35,7 +35,9 @@ class Facty_Pro_Core {
             'show_frontend_badge' => true,
             'require_verification' => true,
             'add_schema_markup' => true,
-            'recency_filter' => 'week'
+            'recency_filter' => 'week',
+            'use_multistep_analyzer' => false,
+            'perplexity_multistep_max_claims' => 10
         );
         
         $saved_options = get_option('facty_pro_options', array());

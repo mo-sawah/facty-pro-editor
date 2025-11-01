@@ -48,6 +48,15 @@ class Facty_Pro_Admin {
             array(),
             FACTY_PRO_VERSION
         );
+        
+        // Add inline script for toggling max claims setting
+        wp_add_inline_script('jquery', "
+            jQuery(document).ready(function($) {
+                $('input[name=\"use_multistep_analyzer\"]').on('change', function() {
+                    $(this).closest('tr').next('tr').toggle(this.checked);
+                });
+            });
+        ");
     }
     
     public function render_settings_page() {
@@ -63,7 +72,9 @@ class Facty_Pro_Admin {
                 'show_frontend_badge' => isset($_POST['show_frontend_badge']),
                 'require_verification' => isset($_POST['require_verification']),
                 'add_schema_markup' => isset($_POST['add_schema_markup']),
-                'recency_filter' => sanitize_text_field($_POST['recency_filter'])
+                'recency_filter' => sanitize_text_field($_POST['recency_filter']),
+                'use_multistep_analyzer' => isset($_POST['use_multistep_analyzer']),
+                'perplexity_multistep_max_claims' => intval($_POST['perplexity_multistep_max_claims'])
             );
             
             update_option('facty_pro_options', $options);
@@ -117,6 +128,35 @@ class Facty_Pro_Admin {
                                 <option value="year" <?php selected($this->options['recency_filter'], 'year'); ?>>Last Year</option>
                             </select>
                             <p class="description">How far back to search for sources (recent sources are prioritized)</p>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <th colspan="2"><h2>Analysis Method</h2></th>
+                    </tr>
+                    
+                    <tr>
+                        <th scope="row">Use Multi-Step Analyzer</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="use_multistep_analyzer" value="1" 
+                                       <?php checked(!empty($this->options['use_multistep_analyzer'])); ?>>
+                                <strong>Enhanced accuracy</strong> - Verify each claim individually (slower, uses more API credits)
+                            </label>
+                            <p class="description">
+                                <strong>Single-Step (default):</strong> Fast analysis in 1 API call (~5-10 seconds)<br>
+                                <strong>Multi-Step (premium):</strong> Each claim verified separately (~30-60+ seconds, more accurate)
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <tr style="<?php echo empty($this->options['use_multistep_analyzer']) ? 'display:none;' : ''; ?>">
+                        <th scope="row">Max Claims to Verify</th>
+                        <td>
+                            <input type="number" name="perplexity_multistep_max_claims" 
+                                   value="<?php echo isset($this->options['perplexity_multistep_max_claims']) ? intval($this->options['perplexity_multistep_max_claims']) : 10; ?>" 
+                                   min="3" max="20" class="small-text">
+                            <p class="description">Number of claims to extract and verify individually (3-20). More claims = more API calls.</p>
                         </td>
                     </tr>
                     

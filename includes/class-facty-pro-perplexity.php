@@ -64,20 +64,9 @@ class Facty_Pro_Perplexity {
 
 **INSTRUCTIONS**:
 
-1. **DETECT SATIRE FIRST**: If this is clearly satirical content (absurd scenarios, obvious jokes), immediately return:
-```json
-{
-    \"score\": 100,
-    \"status\": \"Satire\",
-    \"description\": \"This is satirical content.\",
-    \"claims\": [],
-    \"issues\": [],
-    \"verified_facts\": [],
-    \"sources\": []
-}
-```
+1. **ANALYZE ALL ARTICLES**: Do NOT skip analysis just because content seems unusual. Analyze the factual claims presented, regardless of how absurd they may seem.
 
-2. **FOR REAL ARTICLES**: Identify 5-15 key FACTUAL claims (skip opinions/predictions) and verify each one using real-time web search.
+2. **EXTRACT CLAIMS**: Identify 5-15 key FACTUAL claims from the article (skip opinions/predictions) and verify each one using real-time web search.
 
 3. **CRITICAL VERIFICATION RULES**:
    - ✅ Use ONLY sources from the last {$recency_filter} (prioritize last few days for current events)
@@ -86,6 +75,7 @@ class Facty_Pro_Perplexity {
    - ⚠️ **NEVER mark as \"Factual Error\" unless you have STRONG contradicting evidence**
    - ⚠️ Lack of sources = \"Unverified\", NOT \"Factual Error\"
    - ⚠️ Unverified ≠ False (if you can't verify, say that, don't call it false)
+   - ⚠️ ALWAYS analyze the content - do not skip analysis for any reason
 
 4. **SCORING GUIDE** (Be precise - use full 0-100 range):
    - **95-100**: Completely accurate, well-sourced, current
