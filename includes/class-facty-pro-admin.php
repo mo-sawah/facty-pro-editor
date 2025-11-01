@@ -86,11 +86,11 @@ class Facty_Pro_Admin {
                     </tr>
                     
                     <tr>
-                        <th scope="row">Perplexity API Key *</th>
+                        <th scope="row">Perplexity API Key</th>
                         <td>
                             <input type="text" name="perplexity_api_key" 
                                    value="<?php echo esc_attr($this->options['perplexity_api_key']); ?>" 
-                                   class="regular-text" required>
+                                   class="regular-text">
                             <p class="description">Get your API key from <a href="https://www.perplexity.ai/settings/api" target="_blank">Perplexity AI Settings</a></p>
                         </td>
                     </tr>
@@ -202,8 +202,6 @@ class Facty_Pro_Admin {
                 </p>
             </form>
             
-            <?php $this->render_stats(); ?>
-            
             <div class="facty-pro-help">
                 <h3>🚀 Quick Start Guide</h3>
                 <ol>
@@ -219,35 +217,6 @@ class Facty_Pro_Admin {
                     <li><a href="https://docs.perplexity.ai/" target="_blank">Perplexity AI Documentation</a></li>
                     <li><a href="https://developers.google.com/search/docs/appearance/structured-data/factcheck" target="_blank">Google ClaimReview Guidelines</a></li>
                 </ul>
-            </div>
-        </div>
-        <?php
-    }
-    
-    private function render_stats() {
-        global $wpdb;
-        $table = $wpdb->prefix . 'facty_pro_reports';
-        
-        $total_checks = $wpdb->get_var("SELECT COUNT(*) FROM $table");
-        $verified_count = $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE status = 'verified'");
-        $avg_fact_score = $wpdb->get_var("SELECT AVG(fact_check_score) FROM $table");
-        
-        ?>
-        <div class="facty-pro-stats">
-            <h2>📊 Statistics</h2>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-number"><?php echo number_format($total_checks); ?></div>
-                    <div class="stat-label">Total Fact Checks</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number"><?php echo number_format($verified_count); ?></div>
-                    <div class="stat-label">Verified Articles</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number"><?php echo round($avg_fact_score); ?>/100</div>
-                    <div class="stat-label">Average Accuracy</div>
-                </div>
             </div>
         </div>
         <?php
