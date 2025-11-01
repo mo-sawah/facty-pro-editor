@@ -412,7 +412,7 @@ class Facty_Pro_Misinformation_Monitor {
         $results_summary = array(
             'google' => 0,
             'full_fact' => 0,
-            'perplexity' => 0,
+            'ai_search' => 0,
             'errors' => array(),
             'duplicates_filtered' => 0
         );
@@ -445,8 +445,8 @@ class Facty_Pro_Misinformation_Monitor {
                             $results_summary['google']++;
                         } elseif ($claim['source'] === 'full_fact_rss') {
                             $results_summary['full_fact']++;
-                        } elseif ($claim['source'] === 'perplexity_search') {
-                            $results_summary['perplexity']++;
+                        } elseif ($claim['source'] === 'ai_search') {
+                            $results_summary['ai_search']++;
                         }
                     }
                 } else {
@@ -457,7 +457,7 @@ class Facty_Pro_Misinformation_Monitor {
             $results_summary['duplicates_filtered'] = $duplicate_count;
             
             error_log('Facty Pro: Storage complete - Stored: ' . $stored_count . ', Duplicates filtered: ' . $duplicate_count);
-            error_log('Facty Pro: By source - Google: ' . $results_summary['google'] . ', Full Fact: ' . $results_summary['full_fact'] . ', Perplexity: ' . $results_summary['perplexity']);
+            error_log('Facty Pro: By source - Google: ' . $results_summary['google'] . ', Full Fact: ' . $results_summary['full_fact'] . ', AI Search: ' . $results_summary['ai_search']);
             
             // Store last collection status
             update_option('facty_pro_last_collection', array(
@@ -535,7 +535,7 @@ class Facty_Pro_Misinformation_Monitor {
                 'category' => isset($claim['category']) ? $claim['category'] : 'uncategorized',
                 'rating' => isset($claim['rating']) ? $claim['rating'] : 'Unknown',
                 'fact_checker' => isset($claim['fact_checker']) ? $claim['fact_checker'] : '',
-                'discovered_date' => current_time('mysql'),
+                'discovered_date' => isset($claim['discovered_date']) ? $claim['discovered_date'] : current_time('mysql'),
                 'region' => 'UK',
                 'status' => 'pending',
                 'content_hash' => $content_hash,

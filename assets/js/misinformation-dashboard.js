@@ -98,7 +98,7 @@
               message += "\n\nSources:\n";
               message += "- Google: " + sources.google + " claims\n";
               message += "- Full Fact: " + sources.full_fact + " claims\n";
-              message += "- Perplexity: " + sources.perplexity + " claims";
+              message += "- AI Search: " + sources.ai_search + " claims";
             }
           }
 
@@ -174,6 +174,11 @@
     let sourceDisplay = source
       .replace("_", " ")
       .replace(/\b\w/g, (l) => l.toUpperCase());
+
+    // Special handling for AI Search
+    if (source === "ai_search") {
+      sourceDisplay = "AI Search";
+    }
 
     let actions = "";
     if (status === "pending") {

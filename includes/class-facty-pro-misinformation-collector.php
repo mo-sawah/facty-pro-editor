@@ -55,17 +55,17 @@ class Facty_Pro_Misinformation_Collector {
             error_log('Facty Pro: Full Fact collection failed - ' . $e->getMessage());
         }
         
-        // Collect from Perplexity search
+        // Collect from AI search (Perplexity)
         if (!empty($this->perplexity_api_key)) {
             try {
                 $perplexity_claims = $this->collect_from_perplexity();
                 $all_claims = array_merge($all_claims, $perplexity_claims);
-                error_log('Facty Pro: Perplexity collection successful - ' . count($perplexity_claims) . ' claims');
+                error_log('Facty Pro: AI Search collection successful - ' . count($perplexity_claims) . ' claims');
             } catch (Exception $e) {
-                error_log('Facty Pro: Perplexity collection failed - ' . $e->getMessage());
+                error_log('Facty Pro: AI Search collection failed - ' . $e->getMessage());
             }
         } else {
-            error_log('Facty Pro: Perplexity API key not configured, skipping Perplexity collection');
+            error_log('Facty Pro: AI Search API key not configured, skipping AI Search collection');
         }
         
         error_log('Facty Pro: Total claims collected from all sources: ' . count($all_claims));
@@ -156,6 +156,8 @@ class Facty_Pro_Misinformation_Collector {
                 }
                 
                 // Extract claim details
+                $review_date = $this->extract_review_date($claim_data);
+                
                 $claim = array(
                     'claim_text' => $claim_data['text'],
                     'source' => 'google_factcheck',
@@ -163,10 +165,11 @@ class Facty_Pro_Misinformation_Collector {
                     'category' => $this->categorize_claim($claim_data['text']),
                     'rating' => $rating,
                     'fact_checker' => $this->extract_fact_checker($claim_data),
+                    'discovered_date' => !empty($review_date) ? $review_date : current_time('mysql'),
                     'metadata' => array(
                         'claimant' => isset($claim_data['claimant']) ? $claim_data['claimant'] : '',
                         'claim_date' => isset($claim_data['claimDate']) ? $claim_data['claimDate'] : '',
-                        'review_date' => $this->extract_review_date($claim_data)
+                        'review_date' => $review_date
                     )
                 );
                 
@@ -273,6 +276,7 @@ class Facty_Pro_Misinformation_Collector {
                     'category' => $this->categorize_claim($claim_text),
                     'rating' => 'False', // Full Fact articles are about false claims
                     'fact_checker' => 'Full Fact',
+                    'discovered_date' => date('Y-m-d H:i:s', $pub_date),
                     'metadata' => array(
                         'title' => $title,
                         'description' => strip_tags($description),
@@ -400,7 +404,7 @@ Return ONLY the JSON array, no other text.";
                 return $claims;
             }
             
-            error_log('Facty Pro: Perplexity returned ' . count($perplexity_claims) . ' potential claims');
+            error_log('Facty Pro: AI Search returned ' . count($perplexity_claims) . ' potential claims');
             
             foreach ($perplexity_claims as $claim_data) {
                 if (!isset($claim_data['claim']) || empty($claim_data['claim'])) {
@@ -416,11 +420,12 @@ Return ONLY the JSON array, no other text.";
                 
                 $claim = array(
                     'claim_text' => $claim_data['claim'],
-                    'source' => 'perplexity_search',
+                    'source' => 'ai_search',
                     'source_url' => '',
                     'category' => isset($claim_data['category']) ? $claim_data['category'] : 'uncategorized',
                     'rating' => 'False',
-                    'fact_checker' => 'Perplexity AI',
+                    'fact_checker' => 'AI Search',
+                    'discovered_date' => current_time('mysql'), // AI search doesn't provide original date
                     'metadata' => array(
                         'source_description' => isset($claim_data['source']) ? $claim_data['source'] : '',
                         'explanation' => isset($claim_data['explanation']) ? $claim_data['explanation'] : ''
