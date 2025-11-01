@@ -1,0 +1,60 @@
+/* Facty Pro Frontend Badge */
+
+.facty-pro-badge {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 24px;
+    margin: 24px 0;
+    border-radius: 12px;
+    border-left: 4px solid;
+    transition: all 0.2s;
+}
+
+.facty-pro-badge-excellent {
+    background: #d1fae5;
+    border-left-color: #10b981;
+    color: #065f46;
+}
+
+.facty-pro-badge-good {
+    background: #dbeafe;
+    border-left-color: #3b82f6;
+    color: #1e40af;
+}
+
+.facty-pro-badge-fair {
+    background: #fef3c7;
+    border-left-color: #f59e0b;
+    color: #92400e;
+}
+
+.facty-pro-badge-poor {
+    background: #fee2e2;
+    border-left-color: #ef4444;
+    color: #991b1b;
+}
+
+.facty-pro-badge-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+.facty-pro-badge-content {
+    flex: 1;
+}
+
+.facty-pro-badge-content strong {
+    font-weight: 600;
+    margin-right: 8px;
+}
+
+.facty-pro-badge-score {
+    display: inline-block;
+    margin-left: 12px;
+    padding: 4px 10px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+}
