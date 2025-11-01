@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Facty Pro Editor
  * Description: Advanced AI-powered editorial fact-checking with deep research, SEO analysis, and style suggestions for WordPress editors
- * Version: 1.2.0
+ * Version: 1.4.0
  * Author: Mohamed Sawah
  * Author URI: https://sawahsolutions.com
  * License: GPL v2 or later
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('FACTY_PRO_VERSION', '1.2.0');
+define('FACTY_PRO_VERSION', '1.4.0');
 define('FACTY_PRO_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('FACTY_PRO_PLUGIN_PATH', plugin_dir_path(__FILE__));
 
@@ -27,6 +27,9 @@ require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-perplexity.php';
 require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-perplexity-multistep-analyzer.php';
 require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-seo-analyzer.php';
 require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-style-analyzer.php';
+require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-misinformation-monitor.php';
+require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-misinformation-collector.php';
+require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-article-generator.php';
 require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-meta-box.php';
 require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-gutenberg.php';
 require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-schema.php';
@@ -71,6 +74,13 @@ function facty_pro_activate() {
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($sql);
     
+    // Create misinformation queue table
+    require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-misinformation-monitor.php';
+    Facty_Pro_Misinformation_Monitor::create_table();
+    
+    // Schedule cron job for misinformation collection
+    Facty_Pro_Misinformation_Monitor::schedule_cron();
+    
     // Initialize Action Scheduler
     if (!class_exists('ActionScheduler')) {
         // Action Scheduler will be loaded from vendor if needed
@@ -80,6 +90,7 @@ function facty_pro_activate() {
     $default_options = array(
         'perplexity_api_key' => '',
         'perplexity_model' => 'sonar-pro',
+        'google_factcheck_api_key' => '',
         'enable_seo_analysis' => true,
         'enable_style_analysis' => true,
         'enable_readability_analysis' => true,
@@ -107,6 +118,10 @@ function facty_pro_deactivate() {
     if (function_exists('as_unschedule_all_actions')) {
         as_unschedule_all_actions('facty_pro_process_fact_check');
     }
+    
+    // Unschedule misinformation collection cron
+    require_once FACTY_PRO_PLUGIN_PATH . 'includes/class-facty-pro-misinformation-monitor.php';
+    Facty_Pro_Misinformation_Monitor::unschedule_cron();
     
     flush_rewrite_rules();
 }

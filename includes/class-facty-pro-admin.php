@@ -66,6 +66,7 @@ class Facty_Pro_Admin {
             $options = array(
                 'perplexity_api_key' => sanitize_text_field($_POST['perplexity_api_key']),
                 'perplexity_model' => sanitize_text_field($_POST['perplexity_model']),
+                'google_factcheck_api_key' => sanitize_text_field($_POST['google_factcheck_api_key']),
                 'enable_seo_analysis' => isset($_POST['enable_seo_analysis']),
                 'enable_style_analysis' => isset($_POST['enable_style_analysis']),
                 'enable_readability_analysis' => isset($_POST['enable_readability_analysis']),
@@ -103,6 +104,16 @@ class Facty_Pro_Admin {
                                    value="<?php echo esc_attr($this->options['perplexity_api_key']); ?>" 
                                    class="regular-text">
                             <p class="description">Get your API key from <a href="https://www.perplexity.ai/settings/api" target="_blank">Perplexity AI Settings</a></p>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <th scope="row">Google Fact Check API Key</th>
+                        <td>
+                            <input type="text" name="google_factcheck_api_key" 
+                                   value="<?php echo esc_attr(isset($this->options['google_factcheck_api_key']) ? $this->options['google_factcheck_api_key'] : ''); ?>" 
+                                   class="regular-text">
+                            <p class="description">Get your API key from <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a> (required for misinformation monitoring)</p>
                         </td>
                     </tr>
                     

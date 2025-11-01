@@ -15,6 +15,7 @@ class Facty_Pro_Core {
     private $gutenberg;
     private $schema;
     private $admin;
+    private $misinformation_monitor;
     
     public function __construct() {
         $this->load_options();
@@ -29,6 +30,7 @@ class Facty_Pro_Core {
         $default_options = array(
             'perplexity_api_key' => '',
             'perplexity_model' => 'sonar-pro',
+            'google_factcheck_api_key' => '',
             'enable_seo_analysis' => true,
             'enable_style_analysis' => true,
             'enable_readability_analysis' => true,
@@ -62,6 +64,11 @@ class Facty_Pro_Core {
         // Schema markup for frontend
         if ($this->options['add_schema_markup']) {
             $this->schema = new Facty_Pro_Schema($this->options);
+        }
+        
+        // Misinformation monitor
+        if (is_admin()) {
+            $this->misinformation_monitor = new Facty_Pro_Misinformation_Monitor($this->options);
         }
     }
     
